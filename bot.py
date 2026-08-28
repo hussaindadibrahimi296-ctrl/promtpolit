@@ -1,5 +1,7 @@
 import os
 import logging
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from telegram import (
     Update,
@@ -13,13 +15,12 @@ from telegram.ext import (
     ContextTypes,
 )
 
+
 # =========================================================
 # SETTINGS
 # =========================================================
 
 TOKEN = os.getenv("BOT_TOKEN")
-
-ADMIN_ID = os.getenv("ADMIN_ID")
 
 
 # =========================================================
@@ -35,10 +36,54 @@ logger = logging.getLogger(__name__)
 
 
 # =========================================================
-# TEMPORARY USER LANGUAGE STORAGE
+# HEALTH CHECK SERVER
 # =========================================================
-# فعلاً برای تست از حافظه استفاده می‌کنیم.
-# بعداً PostgreSQL اضافه می‌کنیم.
+
+class HealthHandler(BaseHTTPRequestHandler):
+
+    def do_GET(self):
+
+        self.send_response(200)
+
+        self.send_header(
+            "Content-Type",
+            "text/plain"
+        )
+
+        self.end_headers()
+
+        self.wfile.write(
+            b"PromptPilot Bot is running!"
+        )
+
+    def log_message(self, format, *args):
+        return
+
+
+def start_health_server():
+
+    port = int(
+        os.environ.get(
+            "PORT",
+            10000
+        )
+    )
+
+    server = HTTPServer(
+        ("0.0.0.0", port),
+        HealthHandler
+    )
+
+    logger.info(
+        f"Health server running on port {port}"
+    )
+
+    server.serve_forever()
+
+
+# =========================================================
+# USER LANGUAGE STORAGE
+# =========================================================
 
 user_languages = {}
 
@@ -51,7 +96,8 @@ TEXTS = {
 
     "fa": {
 
-        "language": "🌐 زبان خود را انتخاب کنید:",
+        "language":
+            "🌐 زبان خود را انتخاب کنید:",
 
         "welcome": (
             "🎉 خوش آمدید به PromptPilot!\n\n"
@@ -61,22 +107,37 @@ TEXTS = {
             "👇 یکی از قابلیت‌ها را انتخاب کنید:"
         ),
 
-        "generator": "🧠 تولید Prompt",
-        "improver": "🔥 بهبود Prompt",
-        "doctor": "🩺 Prompt Doctor",
-        "detector": "🎯 تشخیص AI",
-        "image": "🖼️ پرامپت تصویر",
-        "video": "🎬 پرامپت ویدیو",
-        "persian": "🌍 فارسی → Pro Prompt",
-        "remix": "🔄 بازسازی Prompt",
+        "generator":
+            "🧠 تولید Prompt",
 
-        "choose_feature": "👇 یک قابلیت را انتخاب کنید:",
+        "improver":
+            "🔥 بهبود Prompt",
+
+        "doctor":
+            "🩺 Prompt Doctor",
+
+        "detector":
+            "🎯 تشخیص AI",
+
+        "image":
+            "🖼️ پرامپت تصویر",
+
+        "video":
+            "🎬 پرامپت ویدیو",
+
+        "persian":
+            "🌍 فارسی → Pro Prompt",
+
+        "remix":
+            "🔄 بازسازی Prompt",
 
     },
 
+
     "en": {
 
-        "language": "🌐 Choose your language:",
+        "language":
+            "🌐 Choose your language:",
 
         "welcome": (
             "🎉 Welcome to PromptPilot!\n\n"
@@ -86,22 +147,37 @@ TEXTS = {
             "👇 Choose a feature:"
         ),
 
-        "generator": "🧠 Prompt Generator",
-        "improver": "🔥 Prompt Improver",
-        "doctor": "🩺 Prompt Doctor",
-        "detector": "🎯 AI Detector",
-        "image": "🖼️ Image Prompt",
-        "video": "🎬 Video Prompt",
-        "persian": "🌍 Persian → Pro Prompt",
-        "remix": "🔄 Prompt Remix",
+        "generator":
+            "🧠 Prompt Generator",
 
-        "choose_feature": "👇 Choose a feature:",
+        "improver":
+            "🔥 Prompt Improver",
+
+        "doctor":
+            "🩺 Prompt Doctor",
+
+        "detector":
+            "🎯 AI Detector",
+
+        "image":
+            "🖼️ Image Prompt",
+
+        "video":
+            "🎬 Video Prompt",
+
+        "persian":
+            "🌍 Persian → Pro Prompt",
+
+        "remix":
+            "🔄 Prompt Remix",
 
     },
 
+
     "ar": {
 
-        "language": "🌐 اختر لغتك:",
+        "language":
+            "🌐 اختر لغتك:",
 
         "welcome": (
             "🎉 أهلاً بك في PromptPilot!\n\n"
@@ -111,18 +187,32 @@ TEXTS = {
             "👇 اختر إحدى الميزات:"
         ),
 
-        "generator": "🧠 إنشاء Prompt",
-        "improver": "🔥 تحسين Prompt",
-        "doctor": "🩺 Prompt Doctor",
-        "detector": "🎯 كاشف AI",
-        "image": "🖼️ Prompt للصور",
-        "video": "🎬 Prompt للفيديو",
-        "persian": "🌍 فارسی → Pro Prompt",
-        "remix": "🔄 إعادة صياغة Prompt",
+        "generator":
+            "🧠 إنشاء Prompt",
 
-        "choose_feature": "👇 اختر إحدى الميزات:",
+        "improver":
+            "🔥 تحسين Prompt",
 
-    },
+        "doctor":
+            "🩺 Prompt Doctor",
+
+        "detector":
+            "🎯 كاشف AI",
+
+        "image":
+            "🖼️ Prompt للصور",
+
+        "video":
+            "🎬 Prompt للفيديو",
+
+        "persian":
+            "🌍 فارسی → Pro Prompt",
+
+        "remix":
+            "🔄 إعادة صياغة Prompt",
+
+    }
+
 }
 
 
@@ -157,7 +247,9 @@ def language_keyboard():
 
     ]
 
-    return InlineKeyboardMarkup(keyboard)
+    return InlineKeyboardMarkup(
+        keyboard
+    )
 
 
 # =========================================================
@@ -228,38 +320,43 @@ def main_menu(lang):
 
     ]
 
-    return InlineKeyboardMarkup(keyboard)
+    return InlineKeyboardMarkup(
+        keyboard
+    )
 
 
 # =========================================================
-# START COMMAND
+# START
 # =========================================================
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     user_id = update.effective_user.id
 
-    # اگر زبان قبلاً انتخاب شده باشد
     if user_id in user_languages:
 
         lang = user_languages[user_id]
 
         await update.message.reply_text(
             TEXTS[lang]["welcome"],
-            reply_markup=main_menu(lang),
+            reply_markup=main_menu(lang)
         )
 
         return
 
-    # اولین ورود
     await update.message.reply_text(
-        "🌐 Choose your language / زبان خود را انتخاب کنید / اختر لغتك:",
-        reply_markup=language_keyboard(),
+        "🌐 Choose your language / "
+        "زبان خود را انتخاب کنید / "
+        "اختر لغتك:",
+        reply_markup=language_keyboard()
     )
 
 
 # =========================================================
-# CALLBACK HANDLER
+# BUTTON HANDLER
 # =========================================================
 
 async def button_handler(
@@ -281,13 +378,16 @@ async def button_handler(
 
     if data.startswith("lang_"):
 
-        lang = data.replace("lang_", "")
+        lang = data.replace(
+            "lang_",
+            ""
+        )
 
         user_languages[user_id] = lang
 
         await query.edit_message_text(
             TEXTS[lang]["welcome"],
-            reply_markup=main_menu(lang),
+            reply_markup=main_menu(lang)
         )
 
         return
@@ -297,10 +397,6 @@ async def button_handler(
     # -----------------------------------------------------
 
     if data.startswith("feature_"):
-
-        lang = user_languages.get(user_id, "en")
-
-        t = TEXTS[lang]
 
         await query.answer(
             "Coming soon 🚀"
@@ -320,7 +416,7 @@ async def error_handler(
 
     logger.error(
         "Exception while handling update:",
-        exc_info=context.error,
+        exc_info=context.error
     )
 
 
@@ -336,6 +432,13 @@ def main():
             "BOT_TOKEN environment variable is missing."
         )
 
+    # Start HTTP server for Render
+    threading.Thread(
+        target=start_health_server,
+        daemon=True
+    ).start()
+
+    # Telegram application
     application = (
         Application.builder()
         .token(TOKEN)
@@ -343,18 +446,25 @@ def main():
     )
 
     application.add_handler(
-        CommandHandler("start", start)
+        CommandHandler(
+            "start",
+            start
+        )
     )
 
     application.add_handler(
-        CallbackQueryHandler(button_handler)
+        CallbackQueryHandler(
+            button_handler
+        )
     )
 
     application.add_error_handler(
         error_handler
     )
 
-    print("PromptPilot Bot is running...")
+    print(
+        "PromptPilot Bot is running..."
+    )
 
     application.run_polling()
 
@@ -364,4 +474,5 @@ def main():
 # =========================================================
 
 if __name__ == "__main__":
+
     main()
