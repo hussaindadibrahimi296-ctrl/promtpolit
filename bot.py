@@ -3,16 +3,21 @@ import logging
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+from google import genai
+
 from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
+
 from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
+    MessageHandler,
     ContextTypes,
+    filters,
 )
 
 
@@ -21,6 +26,8 @@ from telegram.ext import (
 # =========================================================
 
 TOKEN = os.getenv("BOT_TOKEN")
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 
 # =========================================================
@@ -36,7 +43,20 @@ logger = logging.getLogger(__name__)
 
 
 # =========================================================
-# HEALTH CHECK SERVER
+# GEMINI
+# =========================================================
+
+gemini_client = None
+
+if GEMINI_API_KEY:
+
+    gemini_client = genai.Client(
+        api_key=GEMINI_API_KEY
+    )
+
+
+# =========================================================
+# HEALTH SERVER
 # =========================================================
 
 class HealthHandler(BaseHTTPRequestHandler):
@@ -82,10 +102,12 @@ def start_health_server():
 
 
 # =========================================================
-# USER LANGUAGE STORAGE
+# USER DATA
 # =========================================================
 
 user_languages = {}
+
+user_states = {}
 
 
 # =========================================================
@@ -96,9 +118,6 @@ TEXTS = {
 
     "fa": {
 
-        "language":
-            "🌐 زبان خود را انتخاب کنید:",
-
         "welcome": (
             "🎉 خوش آمدید به PromptPilot!\n\n"
             "🤖 دستیار هوشمند ساخت Prompt\n\n"
@@ -106,6 +125,9 @@ TEXTS = {
             "به یک Prompt حرفه‌ای انگلیسی تبدیل کنید.\n\n"
             "👇 یکی از قابلیت‌ها را انتخاب کنید:"
         ),
+
+        "language":
+            "🌐 زبان خود را انتخاب کنید:",
 
         "generator":
             "🧠 تولید Prompt",
@@ -131,13 +153,43 @@ TEXTS = {
         "remix":
             "🔄 بازسازی Prompt",
 
+        "generator_help": (
+            "🧠 تولید Prompt\n\n"
+            "ایده خود را به هر زبانی که می‌خواهید "
+            "برای من ارسال کنید.\n\n"
+            "مثال:\n"
+            "یک ماشین لوکس در یک شهر مدرن در شب\n\n"
+            "من ایده شما را به یک Prompt حرفه‌ای "
+            "و دقیق به زبان انگلیسی تبدیل می‌کنم.\n\n"
+            "✍️ حالا ایده خود را ارسال کنید:"
+        ),
+
+        "generating":
+            "🧠 در حال ساخت Prompt حرفه‌ای...",
+
+        "result":
+            "✨ Professional English Prompt\n\n",
+
+        "error":
+            "❌ متأسفانه در ساخت Prompt مشکلی پیش آمد.\n\n"
+            "لطفاً دوباره تلاش کنید.",
+
+        "copy":
+            "📋 کپی",
+
+        "improve":
+            "🔥 بهبود",
+
+        "remix_button":
+            "🔄 Remix",
+
+        "home":
+            "🏠 منوی اصلی",
+
     },
 
 
     "en": {
-
-        "language":
-            "🌐 Choose your language:",
 
         "welcome": (
             "🎉 Welcome to PromptPilot!\n\n"
@@ -146,6 +198,9 @@ TEXTS = {
             "professional English prompts.\n\n"
             "👇 Choose a feature:"
         ),
+
+        "language":
+            "🌐 Choose your language:",
 
         "generator":
             "🧠 Prompt Generator",
@@ -171,13 +226,43 @@ TEXTS = {
         "remix":
             "🔄 Prompt Remix",
 
+        "generator_help": (
+            "🧠 Prompt Generator\n\n"
+            "Send me your idea in any language.\n\n"
+            "Example:\n"
+            "A luxury car in a modern city at night\n\n"
+            "I will transform your idea into a "
+            "professional and detailed English prompt.\n\n"
+            "✍️ Now send your idea:"
+        ),
+
+        "generating":
+            "🧠 Creating your professional prompt...",
+
+        "result":
+            "✨ Professional English Prompt\n\n",
+
+        "error":
+            "❌ Something went wrong while creating "
+            "your prompt.\n\n"
+            "Please try again.",
+
+        "copy":
+            "📋 Copy",
+
+        "improve":
+            "🔥 Improve",
+
+        "remix_button":
+            "🔄 Remix",
+
+        "home":
+            "🏠 Main Menu",
+
     },
 
 
     "ar": {
-
-        "language":
-            "🌐 اختر لغتك:",
 
         "welcome": (
             "🎉 أهلاً بك في PromptPilot!\n\n"
@@ -186,6 +271,9 @@ TEXTS = {
             "Prompts احترافية باللغة الإنجليزية.\n\n"
             "👇 اختر إحدى الميزات:"
         ),
+
+        "language":
+            "🌐 اختر لغتك:",
 
         "generator":
             "🧠 إنشاء Prompt",
@@ -210,6 +298,38 @@ TEXTS = {
 
         "remix":
             "🔄 إعادة صياغة Prompt",
+
+        "generator_help": (
+            "🧠 إنشاء Prompt\n\n"
+            "أرسل فكرتك بأي لغة تريدها.\n\n"
+            "مثال:\n"
+            "سيارة فاخرة في مدينة حديثة ليلاً\n\n"
+            "سأحوّل فكرتك إلى Prompt احترافي "
+            "ودقيق باللغة الإنجليزية.\n\n"
+            "✍️ أرسل فكرتك الآن:"
+        ),
+
+        "generating":
+            "🧠 جارٍ إنشاء Prompt احترافي...",
+
+        "result":
+            "✨ Professional English Prompt\n\n",
+
+        "error":
+            "❌ حدث خطأ أثناء إنشاء Prompt.\n\n"
+            "حاول مرة أخرى.",
+
+        "copy":
+            "📋 نسخ",
+
+        "improve":
+            "🔥 تحسين",
+
+        "remix_button":
+            "🔄 Remix",
+
+        "home":
+            "🏠 القائمة الرئيسية",
 
     }
 
@@ -247,9 +367,7 @@ def language_keyboard():
 
     ]
 
-    return InlineKeyboardMarkup(
-        keyboard
-    )
+    return InlineKeyboardMarkup(keyboard)
 
 
 # =========================================================
@@ -320,9 +438,41 @@ def main_menu(lang):
 
     ]
 
-    return InlineKeyboardMarkup(
-        keyboard
-    )
+    return InlineKeyboardMarkup(keyboard)
+
+
+# =========================================================
+# RESULT KEYBOARD
+# =========================================================
+
+def result_keyboard(lang):
+
+    t = TEXTS[lang]
+
+    keyboard = [
+
+        [
+            InlineKeyboardButton(
+                t["improve"],
+                callback_data="action_improve"
+            ),
+
+            InlineKeyboardButton(
+                t["remix_button"],
+                callback_data="action_remix"
+            ),
+        ],
+
+        [
+            InlineKeyboardButton(
+                t["home"],
+                callback_data="home"
+            )
+        ]
+
+    ]
+
+    return InlineKeyboardMarkup(keyboard)
 
 
 # =========================================================
@@ -335,6 +485,11 @@ async def start(
 ):
 
     user_id = update.effective_user.id
+
+    user_states.pop(
+        user_id,
+        None
+    )
 
     if user_id in user_languages:
 
@@ -353,6 +508,107 @@ async def start(
         "اختر لغتك:",
         reply_markup=language_keyboard()
     )
+
+
+# =========================================================
+# GENERATE PROMPT
+# =========================================================
+
+async def generate_prompt(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    user_id = update.effective_user.id
+
+    lang = user_languages.get(
+        user_id,
+        "en"
+    )
+
+    idea = update.message.text.strip()
+
+    if not idea:
+
+        return
+
+    if not gemini_client:
+
+        await update.message.reply_text(
+            TEXTS[lang]["error"]
+        )
+
+        logger.error(
+            "GEMINI_API_KEY is missing."
+        )
+
+        return
+
+    await update.message.reply_text(
+        TEXTS[lang]["generating"]
+    )
+
+    try:
+
+        prompt = f"""
+You are PromptPilot, a professional AI prompt engineer.
+
+The user will provide an idea in any language.
+
+Your task is to transform the user's idea into
+one highly professional, detailed, useful English prompt.
+
+Rules:
+
+1. Output ONLY the final English prompt.
+2. Never explain your changes.
+3. Never translate literally.
+4. Understand the user's actual intention.
+5. Add useful context and details when appropriate.
+6. Keep the result natural and practical.
+7. Do not invent unnecessary requirements.
+8. The final answer must be in English.
+9. Do not use markdown code fences.
+10. Do not add labels such as "Prompt:".
+
+User idea:
+
+{idea}
+"""
+
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        result = response.text.strip()
+
+        if not result:
+
+            raise ValueError(
+                "Gemini returned an empty response."
+            )
+
+        user_states[user_id] = {
+            "last_prompt": result
+        }
+
+        await update.message.reply_text(
+            TEXTS[lang]["result"] + result,
+            reply_markup=result_keyboard(lang)
+        )
+
+    except Exception as e:
+
+        logger.error(
+            "Gemini error: %s",
+            e,
+            exc_info=True
+        )
+
+        await update.message.reply_text(
+            TEXTS[lang]["error"]
+        )
 
 
 # =========================================================
@@ -393,10 +649,74 @@ async def button_handler(
         return
 
     # -----------------------------------------------------
-    # FEATURES
+    # GENERATOR
+    # -----------------------------------------------------
+
+    if data == "feature_generator":
+
+        lang = user_languages.get(
+            user_id,
+            "en"
+        )
+
+        user_states[user_id] = {
+            "mode": "generator"
+        }
+
+        await query.edit_message_text(
+            TEXTS[lang]["generator_help"],
+            reply_markup=InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton(
+                        TEXTS[lang]["home"],
+                        callback_data="home"
+                    )
+                ]
+            ])
+        )
+
+        return
+
+    # -----------------------------------------------------
+    # HOME
+    # -----------------------------------------------------
+
+    if data == "home":
+
+        lang = user_languages.get(
+            user_id,
+            "en"
+        )
+
+        user_states.pop(
+            user_id,
+            None
+        )
+
+        await query.edit_message_text(
+            TEXTS[lang]["welcome"],
+            reply_markup=main_menu(lang)
+        )
+
+        return
+
+    # -----------------------------------------------------
+    # FUTURE FEATURES
     # -----------------------------------------------------
 
     if data.startswith("feature_"):
+
+        await query.answer(
+            "Coming soon 🚀"
+        )
+
+        return
+
+    # -----------------------------------------------------
+    # FUTURE ACTIONS
+    # -----------------------------------------------------
+
+    if data.startswith("action_"):
 
         await query.answer(
             "Coming soon 🚀"
@@ -432,7 +752,7 @@ def main():
             "BOT_TOKEN environment variable is missing."
         )
 
-    # Start HTTP server for Render
+    # Start Render health server
     threading.Thread(
         target=start_health_server,
         daemon=True
@@ -455,6 +775,13 @@ def main():
     application.add_handler(
         CallbackQueryHandler(
             button_handler
+        )
+    )
+
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            generate_prompt
         )
     )
 
