@@ -1,0 +1,2 @@
+# promtpolit
+create ai promt
