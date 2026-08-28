@@ -5,12 +5,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from google import genai
 
-from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-)
-
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -26,7 +21,6 @@ from telegram.ext import (
 # =========================================================
 
 TOKEN = os.getenv("BOT_TOKEN")
-
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 
@@ -49,14 +43,13 @@ logger = logging.getLogger(__name__)
 gemini_client = None
 
 if GEMINI_API_KEY:
-
     gemini_client = genai.Client(
         api_key=GEMINI_API_KEY
     )
 
 
 # =========================================================
-# HEALTH SERVER
+# RENDER HEALTH SERVER
 # =========================================================
 
 class HealthHandler(BaseHTTPRequestHandler):
@@ -106,7 +99,6 @@ def start_health_server():
 # =========================================================
 
 user_languages = {}
-
 user_states = {}
 
 
@@ -118,19 +110,19 @@ TEXTS = {
 
     "fa": {
 
+        "language":
+            "🌐 زبان خود را انتخاب کنید:",
+
         "welcome": (
             "🎉 خوش آمدید به PromptPilot!\n\n"
             "🤖 دستیار هوشمند ساخت Prompt\n\n"
-            "ایده ساده خود را بنویسید و آن را "
+            "ایده ساده خود را ارسال کنید و آن را "
             "به یک Prompt حرفه‌ای انگلیسی تبدیل کنید.\n\n"
             "👇 یکی از قابلیت‌ها را انتخاب کنید:"
         ),
 
-        "language":
-            "🌐 زبان خود را انتخاب کنید:",
-
         "generator":
-            "🧠 تولید Prompt",
+            "🧠 AI Prompt Generator",
 
         "improver":
             "🔥 بهبود Prompt",
@@ -142,26 +134,68 @@ TEXTS = {
             "🎯 تشخیص AI",
 
         "image":
-            "🖼️ پرامپت تصویر",
+            "🖼️ Image Prompt",
 
         "video":
-            "🎬 پرامپت ویدیو",
+            "🎬 Video Prompt",
 
         "persian":
             "🌍 فارسی → Pro Prompt",
 
         "remix":
-            "🔄 بازسازی Prompt",
+            "🔄 Prompt Remix",
+
+        "generator_title":
+            "🧠 AI Prompt Generator",
 
         "generator_help": (
-            "🧠 تولید Prompt\n\n"
-            "ایده خود را به هر زبانی که می‌خواهید "
-            "برای من ارسال کنید.\n\n"
+            "🧠 AI Prompt Generator\n\n"
+            "Prompt خود را برای چه کاری می‌خواهید؟\n\n"
+            "👇 یکی را انتخاب کنید:"
+        ),
+
+        "chat":
+            "💬 ChatGPT / AI",
+
+        "logo":
+            "🎨 Logo / Design",
+
+        "social":
+            "📱 Social Media",
+
+        "writing":
+            "✍️ Writing",
+
+        "other":
+            "🔧 Other",
+
+        "send_idea": (
+            "✍️ حالا ایده یا درخواست خود را به زبان خودتان "
+            "ارسال کنید.\n\n"
+            "من آن را به یک Prompt حرفه‌ای و کاملاً "
+            "انگلیسی تبدیل می‌کنم."
+        ),
+
+        "image_help": (
+            "🖼️ Image Prompt\n\n"
+            "ایده تصویر خود را به زبان خودتان بنویسید.\n\n"
             "مثال:\n"
-            "یک ماشین لوکس در یک شهر مدرن در شب\n\n"
-            "من ایده شما را به یک Prompt حرفه‌ای "
-            "و دقیق به زبان انگلیسی تبدیل می‌کنم.\n\n"
-            "✍️ حالا ایده خود را ارسال کنید:"
+            "یک جنگجوی سامورایی در توکیو هنگام شب، "
+            "نور سینمایی و فضای بارانی\n\n"
+            "من آن را به یک Prompt حرفه‌ای برای "
+            "تولید تصویر تبدیل می‌کنم.\n\n"
+            "✍️ ایده تصویر را ارسال کنید:"
+        ),
+
+        "video_help": (
+            "🎬 Video Prompt\n\n"
+            "ایده ویدیوی خود را به زبان خودتان بنویسید.\n\n"
+            "مثال:\n"
+            "یک ماشین اسپرت قرمز در خیابان‌های دبی "
+            "در شب، حرکت دوربین از جلو\n\n"
+            "من آن را به یک Prompt حرفه‌ای برای "
+            "تولید ویدیو تبدیل می‌کنم.\n\n"
+            "✍️ ایده ویدیو را ارسال کنید:"
         ),
 
         "generating":
@@ -171,11 +205,11 @@ TEXTS = {
             "✨ Professional English Prompt\n\n",
 
         "error":
-            "❌ متأسفانه در ساخت Prompt مشکلی پیش آمد.\n\n"
+            "❌ در ساخت Prompt مشکلی پیش آمد.\n\n"
             "لطفاً دوباره تلاش کنید.",
 
-        "copy":
-            "📋 کپی",
+        "home":
+            "🏠 منوی اصلی",
 
         "improve":
             "🔥 بهبود",
@@ -183,13 +217,13 @@ TEXTS = {
         "remix_button":
             "🔄 Remix",
 
-        "home":
-            "🏠 منوی اصلی",
-
     },
 
 
     "en": {
+
+        "language":
+            "🌐 Choose your language:",
 
         "welcome": (
             "🎉 Welcome to PromptPilot!\n\n"
@@ -199,11 +233,8 @@ TEXTS = {
             "👇 Choose a feature:"
         ),
 
-        "language":
-            "🌐 Choose your language:",
-
         "generator":
-            "🧠 Prompt Generator",
+            "🧠 AI Prompt Generator",
 
         "improver":
             "🔥 Prompt Improver",
@@ -226,14 +257,57 @@ TEXTS = {
         "remix":
             "🔄 Prompt Remix",
 
+        "generator_title":
+            "🧠 AI Prompt Generator",
+
         "generator_help": (
-            "🧠 Prompt Generator\n\n"
-            "Send me your idea in any language.\n\n"
+            "🧠 AI Prompt Generator\n\n"
+            "What do you want to create a prompt for?\n\n"
+            "👇 Choose one:"
+        ),
+
+        "chat":
+            "💬 ChatGPT / AI",
+
+        "logo":
+            "🎨 Logo / Design",
+
+        "social":
+            "📱 Social Media",
+
+        "writing":
+            "✍️ Writing",
+
+        "other":
+            "🔧 Other",
+
+        "send_idea": (
+            "✍️ Now send your idea or request in "
+            "any language.\n\n"
+            "I will transform it into a professional "
+            "English prompt."
+        ),
+
+        "image_help": (
+            "🖼️ Image Prompt\n\n"
+            "Describe your image idea in any language.\n\n"
             "Example:\n"
-            "A luxury car in a modern city at night\n\n"
-            "I will transform your idea into a "
-            "professional and detailed English prompt.\n\n"
-            "✍️ Now send your idea:"
+            "A samurai warrior in Tokyo at night, "
+            "cinematic lighting and rainy atmosphere.\n\n"
+            "I will transform it into a professional "
+            "image-generation prompt.\n\n"
+            "✍️ Send your image idea:"
+        ),
+
+        "video_help": (
+            "🎬 Video Prompt\n\n"
+            "Describe your video idea in any language.\n\n"
+            "Example:\n"
+            "A red sports car driving through Dubai "
+            "at night, camera moving from the front.\n\n"
+            "I will transform it into a professional "
+            "video-generation prompt.\n\n"
+            "✍️ Send your video idea:"
         ),
 
         "generating":
@@ -247,8 +321,8 @@ TEXTS = {
             "your prompt.\n\n"
             "Please try again.",
 
-        "copy":
-            "📋 Copy",
+        "home":
+            "🏠 Main Menu",
 
         "improve":
             "🔥 Improve",
@@ -256,13 +330,13 @@ TEXTS = {
         "remix_button":
             "🔄 Remix",
 
-        "home":
-            "🏠 Main Menu",
-
     },
 
 
     "ar": {
+
+        "language":
+            "🌐 اختر لغتك:",
 
         "welcome": (
             "🎉 أهلاً بك في PromptPilot!\n\n"
@@ -272,11 +346,8 @@ TEXTS = {
             "👇 اختر إحدى الميزات:"
         ),
 
-        "language":
-            "🌐 اختر لغتك:",
-
         "generator":
-            "🧠 إنشاء Prompt",
+            "🧠 AI Prompt Generator",
 
         "improver":
             "🔥 تحسين Prompt",
@@ -288,10 +359,10 @@ TEXTS = {
             "🎯 كاشف AI",
 
         "image":
-            "🖼️ Prompt للصور",
+            "🖼️ Image Prompt",
 
         "video":
-            "🎬 Prompt للفيديو",
+            "🎬 Video Prompt",
 
         "persian":
             "🌍 فارسی → Pro Prompt",
@@ -299,14 +370,53 @@ TEXTS = {
         "remix":
             "🔄 إعادة صياغة Prompt",
 
+        "generator_title":
+            "🧠 AI Prompt Generator",
+
         "generator_help": (
-            "🧠 إنشاء Prompt\n\n"
-            "أرسل فكرتك بأي لغة تريدها.\n\n"
+            "🧠 AI Prompt Generator\n\n"
+            "لأي شيء تريد إنشاء Prompt؟\n\n"
+            "👇 اختر نوع Prompt:"
+        ),
+
+        "chat":
+            "💬 ChatGPT / AI",
+
+        "logo":
+            "🎨 Logo / Design",
+
+        "social":
+            "📱 Social Media",
+
+        "writing":
+            "✍️ Writing",
+
+        "other":
+            "🔧 Other",
+
+        "send_idea": (
+            "✍️ أرسل فكرتك أو طلبك بأي لغة.\n\n"
+            "سأحوّلها إلى Prompt احترافي باللغة الإنجليزية."
+        ),
+
+        "image_help": (
+            "🖼️ Image Prompt\n\n"
+            "اكتب فكرة الصورة بأي لغة.\n\n"
             "مثال:\n"
-            "سيارة فاخرة في مدينة حديثة ليلاً\n\n"
-            "سأحوّل فكرتك إلى Prompt احترافي "
-            "ودقيق باللغة الإنجليزية.\n\n"
-            "✍️ أرسل فكرتك الآن:"
+            "محارب ساموراي في طوكيو ليلاً، "
+            "إضاءة سينمائية وأجواء ممطرة.\n\n"
+            "سأحوّلها إلى Prompt احترافي لتوليد الصور.\n\n"
+            "✍️ أرسل فكرة الصورة:"
+        ),
+
+        "video_help": (
+            "🎬 Video Prompt\n\n"
+            "اكتب فكرة الفيديو بأي لغة.\n\n"
+            "مثال:\n"
+            "سيارة رياضية حمراء في شوارع دبي ليلاً، "
+            "والكاميرا تتحرك من الأمام.\n\n"
+            "سأحوّلها إلى Prompt احترافي لتوليد الفيديو.\n\n"
+            "✍️ أرسل فكرة الفيديو:"
         ),
 
         "generating":
@@ -319,17 +429,14 @@ TEXTS = {
             "❌ حدث خطأ أثناء إنشاء Prompt.\n\n"
             "حاول مرة أخرى.",
 
-        "copy":
-            "📋 نسخ",
+        "home":
+            "🏠 القائمة الرئيسية",
 
         "improve":
             "🔥 تحسين",
 
         "remix_button":
             "🔄 Remix",
-
-        "home":
-            "🏠 القائمة الرئيسية",
 
     }
 
@@ -342,7 +449,7 @@ TEXTS = {
 
 def language_keyboard():
 
-    keyboard = [
+    return InlineKeyboardMarkup([
 
         [
             InlineKeyboardButton(
@@ -365,9 +472,7 @@ def language_keyboard():
             )
         ],
 
-    ]
-
-    return InlineKeyboardMarkup(keyboard)
+    ])
 
 
 # =========================================================
@@ -442,6 +547,75 @@ def main_menu(lang):
 
 
 # =========================================================
+# GENERATOR TYPE MENU
+# =========================================================
+
+def generator_type_keyboard(lang):
+
+    t = TEXTS[lang]
+
+    return InlineKeyboardMarkup([
+
+        [
+            InlineKeyboardButton(
+                t["chat"],
+                callback_data="type_chat"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                t["image"],
+                callback_data="type_image"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                t["video"],
+                callback_data="type_video"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                t["logo"],
+                callback_data="type_logo"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                t["social"],
+                callback_data="type_social"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                t["writing"],
+                callback_data="type_writing"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                t["other"],
+                callback_data="type_other"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                t["home"],
+                callback_data="home"
+            )
+        ],
+
+    ])
+
+
+# =========================================================
 # RESULT KEYBOARD
 # =========================================================
 
@@ -449,7 +623,7 @@ def result_keyboard(lang):
 
     t = TEXTS[lang]
 
-    keyboard = [
+    return InlineKeyboardMarkup([
 
         [
             InlineKeyboardButton(
@@ -470,9 +644,7 @@ def result_keyboard(lang):
             )
         ]
 
-    ]
-
-    return InlineKeyboardMarkup(keyboard)
+    ])
 
 
 # =========================================================
@@ -503,15 +675,13 @@ async def start(
         return
 
     await update.message.reply_text(
-        "🌐 Choose your language / "
-        "زبان خود را انتخاب کنید / "
-        "اختر لغتك:",
+        TEXTS["en"]["language"],
         reply_markup=language_keyboard()
     )
 
 
 # =========================================================
-# GENERATE PROMPT
+# GEMINI PROMPT
 # =========================================================
 
 async def generate_prompt(
@@ -526,23 +696,139 @@ async def generate_prompt(
         "en"
     )
 
+    state = user_states.get(
+        user_id,
+        {}
+    )
+
     idea = update.message.text.strip()
 
     if not idea:
-
         return
 
     if not gemini_client:
-
-        await update.message.reply_text(
-            TEXTS[lang]["error"]
-        )
 
         logger.error(
             "GEMINI_API_KEY is missing."
         )
 
+        await update.message.reply_text(
+            TEXTS[lang]["error"]
+        )
+
         return
+
+    prompt_type = state.get(
+        "prompt_type",
+        "general"
+    )
+
+    if prompt_type == "image":
+
+        instruction = """
+Create a professional English prompt for an AI image generator.
+
+Include appropriate visual details such as:
+subject, environment, composition, lighting,
+camera perspective, atmosphere, style, colors,
+materials and important visual details.
+
+Do not add unnecessary elements.
+Output ONLY the final English prompt.
+"""
+
+    elif prompt_type == "video":
+
+        instruction = """
+Create a professional English prompt for an AI video generator.
+
+Include appropriate details such as:
+subject, environment, action, movement,
+camera movement, camera perspective, lighting,
+atmosphere, cinematic style, pacing and visual details.
+
+Do not add unnecessary elements.
+Output ONLY the final English prompt.
+"""
+
+    elif prompt_type == "chat":
+
+        instruction = """
+Create a professional English prompt for ChatGPT or another AI assistant.
+
+Clearly define the role, objective, context,
+requirements, constraints and desired output.
+
+Output ONLY the final English prompt.
+"""
+
+    elif prompt_type == "logo":
+
+        instruction = """
+Create a professional English prompt for an AI logo/design generator.
+
+Include the brand concept, visual identity,
+style, composition, typography if relevant,
+colors, symbolism and design direction.
+
+Output ONLY the final English prompt.
+"""
+
+    elif prompt_type == "social":
+
+        instruction = """
+Create a professional English prompt for generating
+high-quality social media content.
+
+Include platform-appropriate content direction,
+audience, tone, structure, hook and desired result.
+
+Output ONLY the final English prompt.
+"""
+
+    elif prompt_type == "writing":
+
+        instruction = """
+Create a professional English writing prompt.
+
+Clearly define the writing role, topic,
+audience, tone, structure, requirements
+and desired outcome.
+
+Output ONLY the final English prompt.
+"""
+
+    else:
+
+        instruction = """
+Create a professional English prompt based on the user's idea.
+
+Understand the user's intention and create a useful,
+clear and detailed prompt.
+
+Output ONLY the final English prompt.
+"""
+
+    full_prompt = f"""
+You are PromptPilot, a professional AI prompt engineer.
+
+{instruction}
+
+Rules:
+
+1. Understand the user's intention.
+2. Do not translate literally.
+3. Improve clarity and usefulness.
+4. Do not invent unnecessary requirements.
+5. The final result MUST be in English.
+6. Do not explain your work.
+7. Do not add "Prompt:".
+8. Do not use markdown code fences.
+
+User idea:
+
+{idea}
+"""
 
     await update.message.reply_text(
         TEXTS[lang]["generating"]
@@ -550,48 +836,19 @@ async def generate_prompt(
 
     try:
 
-        prompt = f"""
-You are PromptPilot, a professional AI prompt engineer.
-
-The user will provide an idea in any language.
-
-Your task is to transform the user's idea into
-one highly professional, detailed, useful English prompt.
-
-Rules:
-
-1. Output ONLY the final English prompt.
-2. Never explain your changes.
-3. Never translate literally.
-4. Understand the user's actual intention.
-5. Add useful context and details when appropriate.
-6. Keep the result natural and practical.
-7. Do not invent unnecessary requirements.
-8. The final answer must be in English.
-9. Do not use markdown code fences.
-10. Do not add labels such as "Prompt:".
-
-User idea:
-
-{idea}
-"""
-
         response = gemini_client.models.generate_content(
             model="gemini-2.5-flash",
-            contents=prompt
+            contents=full_prompt
         )
 
         result = response.text.strip()
 
         if not result:
-
             raise ValueError(
-                "Gemini returned an empty response."
+                "Empty Gemini response"
             )
 
-        user_states[user_id] = {
-            "last_prompt": result
-        }
+        user_states[user_id]["last_prompt"] = result
 
         await update.message.reply_text(
             TEXTS[lang]["result"] + result,
@@ -628,50 +885,136 @@ async def button_handler(
 
     data = query.data
 
+    lang = user_languages.get(
+        user_id,
+        "en"
+    )
+
+    t = TEXTS[lang]
+
     # -----------------------------------------------------
     # LANGUAGE
     # -----------------------------------------------------
 
     if data.startswith("lang_"):
 
-        lang = data.replace(
+        selected_lang = data.replace(
             "lang_",
             ""
         )
 
-        user_languages[user_id] = lang
+        user_languages[user_id] = selected_lang
+
+        user_states.pop(
+            user_id,
+            None
+        )
 
         await query.edit_message_text(
-            TEXTS[lang]["welcome"],
-            reply_markup=main_menu(lang)
+            TEXTS[selected_lang]["welcome"],
+            reply_markup=main_menu(selected_lang)
         )
 
         return
 
     # -----------------------------------------------------
-    # GENERATOR
+    # GENERAL PROMPT GENERATOR
     # -----------------------------------------------------
 
     if data == "feature_generator":
-
-        lang = user_languages.get(
-            user_id,
-            "en"
-        )
 
         user_states[user_id] = {
             "mode": "generator"
         }
 
         await query.edit_message_text(
-            TEXTS[lang]["generator_help"],
+            t["generator_help"],
+            reply_markup=generator_type_keyboard(lang)
+        )
+
+        return
+
+    # -----------------------------------------------------
+    # IMAGE PROMPT
+    # -----------------------------------------------------
+
+    if data == "feature_image":
+
+        user_states[user_id] = {
+            "mode": "generator",
+            "prompt_type": "image"
+        }
+
+        await query.edit_message_text(
+            t["image_help"],
             reply_markup=InlineKeyboardMarkup([
+
                 [
                     InlineKeyboardButton(
-                        TEXTS[lang]["home"],
+                        t["home"],
                         callback_data="home"
                     )
                 ]
+
+            ])
+        )
+
+        return
+
+    # -----------------------------------------------------
+    # VIDEO PROMPT
+    # -----------------------------------------------------
+
+    if data == "feature_video":
+
+        user_states[user_id] = {
+            "mode": "generator",
+            "prompt_type": "video"
+        }
+
+        await query.edit_message_text(
+            t["video_help"],
+            reply_markup=InlineKeyboardMarkup([
+
+                [
+                    InlineKeyboardButton(
+                        t["home"],
+                        callback_data="home"
+                    )
+                ]
+
+            ])
+        )
+
+        return
+
+    # -----------------------------------------------------
+    # GENERATOR TYPES
+    # -----------------------------------------------------
+
+    if data.startswith("type_"):
+
+        selected_type = data.replace(
+            "type_",
+            ""
+        )
+
+        user_states[user_id] = {
+            "mode": "generator",
+            "prompt_type": selected_type
+        }
+
+        await query.edit_message_text(
+            t["send_idea"],
+            reply_markup=InlineKeyboardMarkup([
+
+                [
+                    InlineKeyboardButton(
+                        t["home"],
+                        callback_data="home"
+                    )
+                ]
+
             ])
         )
 
@@ -683,18 +1026,13 @@ async def button_handler(
 
     if data == "home":
 
-        lang = user_languages.get(
-            user_id,
-            "en"
-        )
-
         user_states.pop(
             user_id,
             None
         )
 
         await query.edit_message_text(
-            TEXTS[lang]["welcome"],
+            t["welcome"],
             reply_markup=main_menu(lang)
         )
 
@@ -752,13 +1090,11 @@ def main():
             "BOT_TOKEN environment variable is missing."
         )
 
-    # Start Render health server
     threading.Thread(
         target=start_health_server,
         daemon=True
     ).start()
 
-    # Telegram application
     application = (
         Application.builder()
         .token(TOKEN)
@@ -801,5 +1137,4 @@ def main():
 # =========================================================
 
 if __name__ == "__main__":
-
     main()
